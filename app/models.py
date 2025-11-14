@@ -9,22 +9,7 @@ class Base(DeclarativeBase):
     pass
 
 
-class Task(Base):
-    __tablename__ = "task"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    title: Mapped[str] = mapped_column(String(255))
-    description: Mapped[Optional[str]]
-
-    status_id: Mapped[int] = mapped_column(ForeignKey("Status.id"))
-    priority_id: Mapped[int] = mapped_column(ForeignKey("Priority.id"))
-    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    def __repr__(self) -> str:
-        return f"Task(id={self.id!r}, title={self.title!r})"
-
-
-class Status:
+class Status(Base):
     __tablename__ = "status"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -34,7 +19,7 @@ class Status:
         return f"Status(id={self.id!r}, name={self.name!r})"
 
 
-class Priority:
+class Priority(Base):
     __tablename__ = "priority"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -42,3 +27,18 @@ class Priority:
 
     def __repr__(self) -> str:
         return f"Priority(id={self.id!r}, name={self.name!r})"
+
+
+class Task(Base):
+    __tablename__ = "task"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[Optional[str]]
+
+    status_id: Mapped[int] = mapped_column(ForeignKey("status.id"))
+    priority_id: Mapped[int] = mapped_column(ForeignKey("priority.id"))
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    def __repr__(self) -> str:
+        return f"Task(id={self.id!r}, title={self.title!r})"

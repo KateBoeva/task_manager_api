@@ -3,13 +3,16 @@ from select import select
 from sqlalchemy.orm import Session
 
 from app.models import Task
-from app.schemas import TaskCreateUpdate
-from app.database import Database as db
+from app.schemas import TaskCreate
+from app.repos.task_repo import TaskRepo
 
 
-class TaskCrud:
-    def create(self, session, init: TaskCreateUpdate):
-        pass
+class TaskService:
+    def __init__(self):
+        self.repo = TaskRepo()
+    def create(self, init: TaskCreate):
+        new_task = self.repo.create_task(init)
+        return new_task.id
 
     def retrieve(self, task_id: int):
         with Session() as session:
