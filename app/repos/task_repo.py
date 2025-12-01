@@ -8,7 +8,7 @@ Session = sessionmaker(engine)
 
 
 class TaskRepo:
-    def create_task(self, init: TaskCreate) -> None:
+    def create_task(self, init: TaskCreate) -> Task:
         task = Task(
             title=init.title,
             # description: str
@@ -22,3 +22,5 @@ class TaskRepo:
                 raise
             else:
                 session.commit()
+
+        return task
