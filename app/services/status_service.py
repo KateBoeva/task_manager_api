@@ -1,26 +1,34 @@
+from sqlalchemy.orm import Session
+
+from app.models import Status
 from app.repos import StatusRepo
 from app.schemas import StatusCreateUpdate
 
 
 class StatusService:
-    def __init__(self):
-        self.repo = StatusRepo()
+    def __init__(self, session: Session):
+        self.repo = StatusRepo(session)
 
-    def create(self, init: StatusCreateUpdate):
-        new_status = self.repo.create(init)
-        return new_status
+    def create(self, init: StatusCreateUpdate) -> Status:
+        return self.repo.create(init)
 
-    def update(self, status_id: int, init: StatusCreateUpdate):
-        updated_status = self.repo.update(status_id, init)
-        return updated_status
-
-    def retrieve(self, status_id: int):
+    def update(self, status_id: int, init: StatusCreateUpdate) -> Status | None:
         status = self.repo.retrieve(status_id)
-        return status
+        if status is None:
+            return None
+
+        return self.repo.update(status, init)
+
+    def retrieve(self, status_id: int) -> Status | None:
+        return self.repo.retrieve(status_id)
 
     def list(self):
-        statuses = self.repo.list()
-        return statuses
+        return self.repo.list()
 
-    def delete(self, status_id: int):
-        self.repo.delete(status_id)
+    def delete(self, status_id: int) -> bool:
+        status = self.repo.retrieve(status_id)
+        if status is None:
+            return False
+
+        self.repo.delete(status)
+        return True
