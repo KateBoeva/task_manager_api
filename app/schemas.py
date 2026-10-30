@@ -1,19 +1,35 @@
-from pydantic import BaseModel, field_validator
+import datetime
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class TaskCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+    priority_id: int
+    status_id: int
+
+
+class TaskDetail(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
     title: str
-    description: str
-    priority: int
+    description: str | None
+    status_id: int
+    priority_id: int
+    created_at: datetime.datetime
 
 
 class StatusDetail(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
 
 
 class StatusCreateUpdate(BaseModel):
-    name: str
+    name: str = Field(max_length=30)
 
     @field_validator('name')
     @classmethod

@@ -1,99 +1,84 @@
-from fastapi import FastAPI
-from starlette.responses import PlainTextResponse
+from contextlib import asynccontextmanager
 
-from .database import create_db_and_tables
-from .schemas import TaskCreate, StatusCreateUpdate
-from app.services.task_service import TaskService
-from .services import StatusService
+from fastapi import FastAPI, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
-app = FastAPI()
-
-create_db_and_tables()
+from .database import create_db_and_tables, get_db
+from .schemas import TaskCreate, TaskDetail, StatusCreateUpdate, StatusDetail
+from .services import TaskService, StatusService
 
 
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    create_db_and_tables()
+    yield
 
 
-@app.get("/hello/{name}")
-async def say_hello(name: str):
-    return {"message": f"Hello {name}"}
+app = FastAPI(lifespan=lifespan)
 
+
+# Эндпоинты синхронные (def), т.к. работа с БД синхронная:
+# FastAPI выполняет их в threadpool и не блокирует event loop.
 
 # tasks
-@app.get("/tasks/{task_id}")
-async def get_task(task_id: int):
-    task = TaskService().retrieve(task_id)
-    if task:
-        return {"message": f"Found task with id = task_id"}
+@app.get("/tasks/{task_id}", response_model=TaskDetail)
+def get_task(task_id: int, db: Session = Depends(get_db)):
+    task = TaskService(db).retrieve(task_id)
+    if task is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Task with id = {task_id} not found")
 
-    return {"message": f"Not found task with id = task_id"}
-
-
-@app.post("/tasks")
-async def create_task(task: TaskCreate):
-    service = TaskService()
-    task_id = service.create(task)
-    if task_id:
-        return {"message": f"Added task with id = {task_id}"}
-
-    return {"message": f"Something went wrong"}
+    return task
 
 
-@app.get("/tasks")
-async def get_tasks():
-    service = TaskService()
-    data = service.list()
-    statuses = "\n".join([f"{d.id}: {d.name}" for d in data])
-    return PlainTextResponse(f"Task list: \n\n{statuses}")
+@app.post("/tasks", response_model=TaskDetail, status_code=status.HTTP_201_CREATED)
+def create_task(init: TaskCreate, db: Session = Depends(get_db)):
+    try:
+        return TaskService(db).create(init)
+    except IntegrityError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid status_id or priority_id")
+
+
+@app.get("/tasks", response_model=list[TaskDetail])
+def get_tasks(db: Session = Depends(get_db)):
+    return TaskService(db).list()
 
 
 # statuses
-@app.get("/statuses")
-async def get_statuses():
-    service = StatusService()
-    data = service.list()
-    statuses = "\n".join([f"{d.id}: {d.name}" for d in data])
-    return PlainTextResponse(f"Status list: \n\n{statuses}")
+@app.get("/statuses", response_model=list[StatusDetail])
+def get_statuses(db: Session = Depends(get_db)):
+    return StatusService(db).list()
 
 
-@app.post("/statuses")
-async def create_status(status: StatusCreateUpdate):
-    service = StatusService()
-    status = service.create(status)
-    if status:
-        return PlainTextResponse(f"The status was created! \n\nID: {status.id}\nName: {status.name}\n")
-
-    return PlainTextResponse(f"Something went wrong")
+@app.post("/statuses", response_model=StatusDetail, status_code=status.HTTP_201_CREATED)
+def create_status(init: StatusCreateUpdate, db: Session = Depends(get_db)):
+    return StatusService(db).create(init)
 
 
-@app.put("/statuses/{status_id}")
-async def update_status(status_id: int, status: StatusCreateUpdate):
-    service = StatusService()
-    status = service.update(status_id, status)
-    if status:
-        return PlainTextResponse(f"The status was updated! \n\nID: {status.id}\nName: {status.name}\n")
+@app.put("/statuses/{status_id}", response_model=StatusDetail)
+def update_status(status_id: int, init: StatusCreateUpdate, db: Session = Depends(get_db)):
+    updated = StatusService(db).update(status_id, init)
+    if updated is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Status with id = {status_id} not found")
 
-    return PlainTextResponse(f"Something went wrong")
-
-
-@app.get("/statuses/{status_id}")
-async def get_status(status_id: int):
-    status = StatusService().retrieve(status_id)
-    if status:
-        return PlainTextResponse(f"Status card: \n\nID: {status_id}\nName: {status.name}")
-
-    return PlainTextResponse(f"The status not found :(")
+    return updated
 
 
-@app.delete("/statuses/{status_id}")
-async def delete_status(status_id: int):
-    service = StatusService()
-    status = service.retrieve(status_id)
-    if status:
-        name = status.name
-        service.delete(status_id)
-        return PlainTextResponse(f'Status "{name}" was successfully deleted.\n')
+@app.get("/statuses/{status_id}", response_model=StatusDetail)
+def get_status(status_id: int, db: Session = Depends(get_db)):
+    found = StatusService(db).retrieve(status_id)
+    if found is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Status with id = {status_id} not found")
 
-    return PlainTextResponse(f"The status not found :(")
+    return found
+
+
+@app.delete("/statuses/{status_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_status(status_id: int, db: Session = Depends(get_db)):
+    try:
+        deleted = StatusService(db).delete(status_id)
+    except IntegrityError:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Status is used by tasks")
+
+    if not deleted:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Status with id = {status_id} not found")
