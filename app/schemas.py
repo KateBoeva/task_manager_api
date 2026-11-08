@@ -1,10 +1,22 @@
 import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
 
 
-class TaskCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=255)
+class RequestSchema(BaseModel):
+    # PostgreSQL не может хранить символ NUL в текстовых полях
+    @field_validator("*")
+    @classmethod
+    def reject_nul(cls, value):
+        if isinstance(value, str) and "\x00" in value:
+            raise ValueError("NUL characters are not allowed")
+
+        return value
+
+
+class TaskCreate(RequestSchema):
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
     description: str | None = None
     priority_id: int
     status_id: int
@@ -28,13 +40,5 @@ class StatusDetail(BaseModel):
     name: str
 
 
-class StatusCreateUpdate(BaseModel):
-    name: str = Field(max_length=30)
-
-    @field_validator('name')
-    @classmethod
-    def check_name(cls, value):
-        if not value:
-            raise ValueError('Invalid status name')
-
-        return value
+class StatusCreateUpdate(RequestSchema):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=30)]

@@ -1,21 +1,13 @@
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI, Depends, HTTPException, status
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Session
 
-from .database import create_db_and_tables, get_db
-from .schemas import TaskCreate, TaskDetail, StatusCreateUpdate, StatusDetail
-from .services import TaskService, StatusService
+from app.database import get_db
+from app.schemas import TaskCreate, TaskDetail, StatusCreateUpdate, StatusDetail
+from app.services import TaskService, StatusService
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    create_db_and_tables()
-    yield
-
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 
 # Эндпоинты синхронные (def), т.к. работа с БД синхронная:
@@ -35,7 +27,7 @@ def get_task(task_id: int, db: Session = Depends(get_db)):
 def create_task(init: TaskCreate, db: Session = Depends(get_db)):
     try:
         return TaskService(db).create(init)
-    except IntegrityError:
+    except (IntegrityError, DataError):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid status_id or priority_id")
 
 
@@ -52,12 +44,19 @@ def get_statuses(db: Session = Depends(get_db)):
 
 @app.post("/statuses", response_model=StatusDetail, status_code=status.HTTP_201_CREATED)
 def create_status(init: StatusCreateUpdate, db: Session = Depends(get_db)):
-    return StatusService(db).create(init)
+    try:
+        return StatusService(db).create(init)
+    except IntegrityError:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"Status with name = {init.name} already exists")
 
 
 @app.put("/statuses/{status_id}", response_model=StatusDetail)
 def update_status(status_id: int, init: StatusCreateUpdate, db: Session = Depends(get_db)):
-    updated = StatusService(db).update(status_id, init)
+    try:
+        updated = StatusService(db).update(status_id, init)
+    except IntegrityError:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"Status with name = {init.name} already exists")
+
     if updated is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Status with id = {status_id} not found")
 

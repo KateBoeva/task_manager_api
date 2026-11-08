@@ -1,2 +1,2 @@
-from .task_service import *
-from .status_service import *
+from .task_service import TaskService
+from .status_service import StatusService

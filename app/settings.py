@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     POSTGRES_DB: str
     POSTGRES_HOST: str = 'localhost'
     POSTGRES_PORT: int = 5432
+    SQL_ECHO: bool = False
 
     model_config = SettingsConfigDict(
         env_file="service.env",
