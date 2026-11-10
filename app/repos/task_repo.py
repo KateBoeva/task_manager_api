@@ -21,3 +21,7 @@ class TaskRepo:
 
     def list(self):
         return self.session.scalars(select(Task)).all()
+
+    def delete(self, task: Task) -> None:
+        self.session.delete(task)
+        self.session.commit()

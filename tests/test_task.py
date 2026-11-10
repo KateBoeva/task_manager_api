@@ -57,6 +57,22 @@ class TestTask:
         assert response.status_code == 200
         assert response.json() == created
 
+    def test_delete(self, client, payload):
+        created = client.post("/tasks", json=payload).json()
+
+        response = client.delete(f"/tasks/{created['id']}")
+        assert response.status_code == 204
+
+        response = client.get(f"/tasks/{created['id']}")
+        assert response.status_code == 404
+
+        response = client.delete(f"/tasks/{created['id']}")
+        assert response.status_code == 404
+
+    @pytest.mark.parametrize("task_id", [999999, 2_147_483_648])
+    def test_delete_not_found(self, client, task_id):
+        assert client.delete(f"/tasks/{task_id}").status_code == 404
+
     @pytest.mark.parametrize("task_id", [999999, 2_147_483_648])
     def test_retrieve_not_found(self, client, task_id):
         assert client.get(f"/tasks/{task_id}").status_code == 404

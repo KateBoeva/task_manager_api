@@ -18,7 +18,7 @@ The project follows a layered architecture (API → services → repositories) w
 HTTP request
    │
    ▼
-app/main.py          API layer: routing, request/response schemas, HTTP errors
+app/routers/         API layer: routing, request/response schemas, HTTP errors
    │  Depends(get_db) – one SQLAlchemy session per request
    ▼
 app/services/        Business logic (StatusService, TaskService)
@@ -107,11 +107,12 @@ All endpoints accept and return JSON.
 
 ### Tasks
 
-| Method | Endpoint       | Description        | Success | Errors |
-|--------|----------------|--------------------|---------|--------|
-| `GET`  | `/tasks`       | List all tasks     | `200`   |        |
-| `GET`  | `/tasks/{id}`  | Get a task by ID   | `200`   | `404`  |
-| `POST` | `/tasks`       | Create a task      | `201`   | `400` (unknown status or priority), `422` |
+| Method   | Endpoint       | Description        | Success | Errors |
+|----------|----------------|--------------------|---------|--------|
+| `GET`    | `/tasks`       | List all tasks     | `200`   |        |
+| `GET`    | `/tasks/{id}`  | Get a task by ID   | `200`   | `404`  |
+| `POST`   | `/tasks`       | Create a task      | `201`   | `400` (unknown status or priority), `422` |
+| `DELETE` | `/tasks/{id}`  | Delete a task      | `204`   | `404`  |
 
 ### Example
 
@@ -132,11 +133,14 @@ curl -X POST http://localhost:8000/tasks \
 
 ```
 app/
-├── main.py              # FastAPI app, routes, lifespan
+├── main.py              # FastAPI app, includes routers
 ├── models.py            # SQLAlchemy models: Task, Status, Priority
 ├── schemas.py           # Pydantic request/response schemas
 ├── database.py          # Engine, session factory, get_db dependency
 ├── settings.py          # Configuration (pydantic-settings)
+├── routers/             # API layer: endpoints
+│   ├── status_router.py
+│   └── task_router.py
 ├── repos/               # Data access layer
 │   ├── status_repo.py
 │   └── task_repo.py
@@ -173,7 +177,8 @@ The tests run against a dedicated PostgreSQL container (`docker-compose.test.yml
 - [x] Tests on an isolated PostgreSQL test database
 - [x] Database migrations with Alembic
 - [x] CI with GitHub Actions
-- [ ] Update and delete endpoints for tasks
+- [x] Delete endpoint for tasks
+- [ ] Update endpoint for tasks
 - [ ] CRUD endpoints for priorities
 - [ ] Pagination and filtering for task lists
 - [ ] Authentication

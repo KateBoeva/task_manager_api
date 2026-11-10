@@ -21,5 +21,10 @@ class TaskService:
     def update(self):
         pass
 
-    def delete(self):
-        pass
+    def delete(self, task_id: int) -> bool:
+        task = self.repo.retrieve(task_id)
+        if not task:
+            return False
+
+        self.repo.delete(task)
+        return True
